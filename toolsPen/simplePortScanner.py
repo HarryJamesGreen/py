@@ -67,22 +67,20 @@ def scan_ports(host, ports, timeout, num_threads, verbose=False):
 
     return open_ports
 
-
 def main():
     print("Welcome to the Simple Port Scanner!")
     print("This tool allows you to perform port scanning on a target host.")
 
     parser = argparse.ArgumentParser(description="Advanced Port Scanner")
-    parser.add_argument("host", help="Target IP address or hostname")
+    parser.add_argument("-H", "--host", help="Target IP address or hostname")
     parser.add_argument("-p", "--ports", default="1-1024", help="Port range to scan (default: 1-1024)")
-    parser.add_argument("-t", "--timeout", type=float, default=1, help="Timeout for port connection (default: 1 second)")
-    parser.add_argument("-T", "--threads", type=int, default=10, help="Number of threads for scanning (default: 10)")
+    parser.add_argument("-t", "--targets", help="File containing target IP addresses")
+    parser.add_argument("-T", "--timeout", type=float, default=1, help="Timeout for port connection (default: 1 second)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
 
     host = args.host
     timeout = args.timeout
-    num_threads = args.threads
     verbose = args.verbose
 
     # Parse port range
@@ -94,18 +92,25 @@ def main():
 
     # Perform port scanning
     start_time = time.time()
-    open_ports = scan_ports(host, ports, timeout, num_threads, verbose)
-    end_time = time.time()
-
-    # Display results
-    if open_ports:
-        print(f"\nOpen ports on {host}:")
-        for port in open_ports:
-            service_name = COMMON_PORTS.get(port, "Unknown")
-            print(f"    Port {port} ({service_name}) is open")
+    
+    if args.targets:
+        try:
+            with open(args.targets) as file:
+                for line in file:
+                    target_host = line.strip()
+                    open_ports = scan_ports(target_host, ports, timeout, num_threads, verbose)
+                    display_results(target_host, open_ports)
+        except FileNotFoundError:
+            print("File not found.")
+            return
     else:
-        print(f"\nNo open ports found on {host}")
+        if not host:
+            print("Please specify a target host using the -H option or a file containing target IP addresses using the -t option.")
+            return
+        open_ports = scan_ports(host, ports, timeout, num_threads, verbose)
+        display_results(host, open_ports)
 
+    end_time = time.time()
     print(f"\nScan completed in {end_time - start_time:.2f} seconds")
 
 def parse_ports(port_str):
@@ -131,8 +136,14 @@ def parse_ports(port_str):
 
     return ports
 
-    return ports
-
+def display_results(host, open_ports):
+    if open_ports:
+        print(f"\nOpen ports on {host}:")
+        for port in open_ports:
+            service_name = COMMON_PORTS.get(port, "Unknown")
+            print(f"    Port {port} ({service_name}) is open")
+    else:
+        print(f"\nNo open ports found on {host}")
 
 if __name__ == "__main__":
     main()
